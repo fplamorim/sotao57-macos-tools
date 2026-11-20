@@ -131,25 +131,136 @@ enum DependencyInstaller {
             return .success(())
         }
 
-        let args = dep.isCask ? ["install", "--cask", pkg] : ["install", pkg]
-        let env = [
+        if dep.isCask {
+            onLog(
+                L10n.t(
+                    "Atualizando índice do Homebrew (cask)…",
+                    en: "Refreshing Homebrew cask index…",
+                    es: "Actualizando índice de Homebrew (cask)…"
+                )
+            )
+            _ = ShellRunner.runStreaming(
+                executable: brewPath,
+                arguments: ["update", "--quiet"],
+                extraEnv: [
+                    "NONINTERACTIVE": "1",
+                    "HOMEBREW_NO_ANALYTICS": "1",
+                ],
+                timeout: 180,
+                onLine: onLog
+            )
+
+            let caskEnv = [
+                "NONINTERACTIVE": "1",
+                "HOMEBREW_NO_ANALYTICS": "1",
+                "HOMEBREW_NO_ENV_HINTS": "1",
+            ]
+            let firstRes = ShellRunner.runStreaming(
+                executable: brewPath,
+                arguments: ["install", "--cask", pkg],
+                extraEnv: caskEnv,
+                timeout: 1500,
+                onLine: onLog
+            )
+
+            if firstRes.status == 0 || ShellRunner.findExecutable([dep.id]) != nil {
+                return .success(())
+            }
+
+            onLog(
+                L10n.t(
+                    "Limpando cache antigo de \(pkg) e tentando novamente…",
+                    en: "Cleaning stale \(pkg) cache and retrying…",
+                    es: "Limpiando caché antiguo de \(pkg) y reintentando…"
+                )
+            )
+            _ = ShellRunner.runStreaming(
+                executable: brewPath,
+                arguments: ["update", "--force", "--quiet"],
+                extraEnv: caskEnv,
+                timeout: 180,
+                onLine: onLog
+            )
+            _ = ShellRunner.runStreaming(
+                executable: brewPath,
+                arguments: ["cleanup", "--prune=all", pkg],
+                extraEnv: caskEnv,
+                timeout: 120,
+                onLine: onLog
+            )
+
+            let retryRes = ShellRunner.runStreaming(
+                executable: brewPath,
+                arguments: ["install", "--cask", "--force", pkg],
+                extraEnv: caskEnv,
+                timeout: 1500,
+                onLine: onLog
+            )
+            if retryRes.status == 0 || ShellRunner.findExecutable([dep.id]) != nil {
+                return .success(())
+            }
+
+            let errLines = (retryRes.stderr + "\n" + retryRes.stdout)
+                .split(whereSeparator: \.isNewline)
+                .map(String.init)
+                .suffix(3)
+                .joined(separator: " ")
+
+            return .failure(
+                ToolError.commandFailed(
+                    errLines.isEmpty
+                        ? L10n.t("Falha ao instalar \(dep.name).", en: "Failed to install \(dep.name).", es: "Error al instalar \(dep.name).")
+                        : errLines
+                )
+            )
+        }
+
+        let fastEnv = [
             "NONINTERACTIVE": "1",
             "HOMEBREW_NO_AUTO_UPDATE": "1",
             "HOMEBREW_NO_ANALYTICS": "1",
             "HOMEBREW_NO_ENV_HINTS": "1",
         ]
 
-        let res = ShellRunner.runStreaming(
+        var res = ShellRunner.runStreaming(
             executable: brewPath,
-            arguments: args,
-            extraEnv: env,
+            arguments: ["install", pkg],
+            extraEnv: fastEnv,
             timeout: 1200,
             onLine: onLog
         )
 
-        // Confirm whether the target executable became available even if a secondary upgrade had a link warning
         if res.status == 0 || ShellRunner.findExecutable([dep.id]) != nil {
             return .success(())
+        }
+
+        // If stale index/404 occurred, refresh Homebrew once and retry cleanly
+        let combined = (res.stderr + "\n" + res.stdout).lowercased()
+        if combined.contains("404") || combined.contains("curl") || combined.contains("download") || combined.contains("sha256") {
+            onLog(
+                L10n.t(
+                    "Atualizando índice do Homebrew e tentando \(pkg) novamente…",
+                    en: "Refreshing Homebrew index and retrying \(pkg)…",
+                    es: "Actualizando índice de Homebrew y reintentando \(pkg)…"
+                )
+            )
+            _ = ShellRunner.runStreaming(
+                executable: brewPath,
+                arguments: ["update", "--quiet"],
+                extraEnv: ["NONINTERACTIVE": "1", "HOMEBREW_NO_ANALYTICS": "1"],
+                timeout: 180,
+                onLine: onLog
+            )
+            res = ShellRunner.runStreaming(
+                executable: brewPath,
+                arguments: ["install", pkg],
+                extraEnv: ["NONINTERACTIVE": "1", "HOMEBREW_NO_ANALYTICS": "1", "HOMEBREW_NO_ENV_HINTS": "1"],
+                timeout: 1200,
+                onLine: onLog
+            )
+            if res.status == 0 || ShellRunner.findExecutable([dep.id]) != nil {
+                return .success(())
+            }
         }
 
         let errLines = (res.stderr + "\n" + res.stdout)

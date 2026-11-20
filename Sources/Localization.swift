@@ -33,7 +33,7 @@ enum L10n {
     static var appName: String { "SOTAO57 macOS Tools" }
 
     static var appVersion: String {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.1.0"
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.1.1"
     }
 
     static let repoSlug = "fplamorim/sotao57-macos-tools"

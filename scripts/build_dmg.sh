@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 APP_SRC="/Applications/SOTAO57 macOS Tools.app"
 DIST_DIR="$ROOT/dist"
-DMG_NAME="SOTAO57-macOS-Tools-v1.1.0.dmg"
+DMG_NAME="SOTAO57-macOS-Tools-v1.1.1.dmg"
 DMG_PATH="$DIST_DIR/$DMG_NAME"
 STAGE="$(mktemp -d /tmp/sotao57_dmg_stage.XXXXXX)"
 trap 'rm -rf "$STAGE"' EXIT
@@ -42,7 +42,8 @@ NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install ffmpeg yt-dlp pandoc qpd
 
 read -r -p "Deseja instalar tambem o LibreOffice (para DOCX/XLSX/ODS -> PDF)? [s/N] " resp
 if [[ "$resp" =~ ^[sSyY]$ ]]; then
-    NONINTERACTIVE=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install --cask libreoffice || true
+    NONINTERACTIVE=1 brew update --quiet || true
+    NONINTERACTIVE=1 brew install --cask libreoffice || true
 fi
 
 echo "Concluido! Pressione Enter para fechar."
@@ -51,7 +52,7 @@ CMD
 chmod +x "$STAGE/Instalar Dependencias Opcionais.command"
 
 cat > "$STAGE/LEIA-ME.txt" <<'TXT'
-SOTAO57 macOS Tools v1.1.0
+SOTAO57 macOS Tools v1.1.1
 Copyright (c) 2026 Fernando Amorim (SOTAO57) — Licenca MIT
 
 COMO INSTALAR:
@@ -63,7 +64,8 @@ COMO INSTALAR:
    as dependencias instaladas, pede autorizacao ao macOS (com senha se necessario),
    mostra o progresso e reinicia o app ao concluir.
 
-NOVIDADES DA v1.1.0:
+NOVIDADES DA v1.1.1:
+- Atualiza automaticamente o indice do Homebrew antes de instalar casks (corrige erro 404 do LibreOffice) e detalha eventuais erros com botao Tentar novamente
 - Assistente guiado de configuracao e instalacao de dependencias (com reinicio ao concluir)
 - Novo modulo Download Web (yt-dlp) para YouTube, TikTok, LinkedIn e 1000+ sites
 - Botao manual "Atualizacoes" para consultar GitHub Releases (nunca checa/instala sozinho)

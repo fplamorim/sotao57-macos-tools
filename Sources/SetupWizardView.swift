@@ -385,10 +385,17 @@ struct SetupWizardView: View {
     }
 
     private var doneStepView: some View {
-        VStack(spacing: 14) {
-            Spacer()
+        let failedItems = vm.dependencies.compactMap { dep -> (DependencyStatus, String)? in
+            if case .failed(let reason) = vm.packageStates[dep.id] {
+                return (dep, reason)
+            }
+            return nil
+        }
+
+        return VStack(spacing: 12) {
+            Spacer(minLength: 4)
             Image(systemName: vm.wizardFailedCount == 0 ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
-                .font(.system(size: 52))
+                .font(.system(size: 48))
                 .foregroundStyle(vm.wizardFailedCount == 0 ? Color.green : Color.orange)
 
             Text(
@@ -408,11 +415,39 @@ struct SetupWizardView: View {
             .font(.subheadline)
             .foregroundStyle(.secondary)
             .multilineTextAlignment(.center)
-            .padding(.horizontal, 28)
+            .padding(.horizontal, 24)
 
-            Spacer()
+            if !failedItems.isEmpty {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(failedItems, id: \.0.id) { dep, reason in
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("\(dep.name)")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(Color.red)
+                                Text(reason)
+                                    .font(.system(size: 10.5, design: .monospaced))
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(3)
+                                Text("Terminal: brew update && \(dep.installHint)")
+                                    .font(.system(size: 10.5, design: .monospaced))
+                                    .foregroundStyle(Color(red: 0.14, green: 0.36, blue: 0.72))
+                                    .textSelection(.enabled)
+                            }
+                            .padding(8)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color.red.opacity(0.06))
+                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        }
+                    }
+                }
+                .frame(maxHeight: 150)
+                .padding(.horizontal, 12)
+            }
+
+            Spacer(minLength: 4)
         }
-        .padding(20)
+        .padding(18)
     }
 
     @ViewBuilder
@@ -481,6 +516,16 @@ struct SetupWizardView: View {
                     vm.finishWizardWithoutRestart()
                 }
                 .buttonStyle(.bordered)
+
+                if vm.wizardFailedCount > 0 {
+                    Button(L10n.t("Tentar novamente", en: "Retry", es: "Reintentar")) {
+                        vm.recheckDependenciesInWizard()
+                        let missingIDs = Set(vm.missingOptionalDependencies.map(\.id))
+                        vm.selectedBrewPackages = vm.selectedBrewPackages.intersection(missingIDs)
+                        vm.wizardStep = .selectAndAuth
+                    }
+                    .buttonStyle(.bordered)
+                }
 
                 Spacer()
 

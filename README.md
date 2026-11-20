@@ -6,7 +6,7 @@ Desenvolvido por **Fernando Amorim (SOTAO57)** sob a **Licença MIT**.
 
 ---
 
-## Módulos incluídos (v1.1.0)
+## Módulos incluídos (v1.1.1)
 
 1. **Áudio** — `.mp3` (192 kbps ID3v2.3), `.m4a` (AAC Apple), `.opus` (Opus 48 kHz mono para WhatsApp Web / mensageiros), `.ogg`, `.wav` (PCM 16-bit), `.flac`
 2. **Vídeo** — `.mp4` (H.264 + AAC com escolha de qualidade Padrão/Compacto), `.mov`, `.mkv`, `.webm`, `.gif` animado, e **Extrair Áudio (`.mp3`)**
@@ -35,7 +35,7 @@ Desenvolvido por **Fernando Amorim (SOTAO57)** sob a **Licença MIT**.
 
 ## Instalação rápida noutros Macs (`.dmg`)
 
-1. Descarregue `SOTAO57-macOS-Tools-v1.1.0.dmg` em [GitHub Releases](https://github.com/fplamorim/sotao57-macos-tools/releases).
+1. Descarregue `SOTAO57-macOS-Tools-v1.1.1.dmg` em [GitHub Releases](https://github.com/fplamorim/sotao57-macos-tools/releases).
 2. Abra o `.dmg` e arraste **SOTAO57 macOS Tools.app** para **Applications** (*Aplicações*).
 3. Se o macOS Gatekeeper mostrar aviso por assinatura local (*ad-hoc*), clique com o botão direito em **SOTAO57 macOS Tools.app** → **Abrir** (ou **Definições do Sistema → Privacidade e Segurança → Abrir mesmo assim**).
 4. Ao abrir o app, siga o **Assistente integrado** (ou, se preferir via Terminal, execute `brew install ffmpeg yt-dlp pandoc qpdf ghostscript webp` e opcionalmente `brew install --cask libreoffice`).
@@ -52,7 +52,7 @@ Requer Xcode Command Line Tools (`xcode-select --install`) no macOS 13+:
 ```
 
 - `scripts/build.sh` compila o binário Universal (`arm64` + `x86_64`) em `/Applications/SOTAO57 macOS Tools.app`.
-- `scripts/build_dmg.sh` gera o instalador portátil em `dist/SOTAO57-macOS-Tools-v1.1.0.dmg`.
+- `scripts/build_dmg.sh` gera o instalador portátil em `dist/SOTAO57-macOS-Tools-v1.1.1.dmg`.
 
 ---
 
