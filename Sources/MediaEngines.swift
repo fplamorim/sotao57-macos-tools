@@ -36,7 +36,15 @@ enum MediaEngines {
             case "flac":
                 args += ["-c:a", "flac", tempURL.path]
             default:
-                return .failure(ToolError.invalidInput("Formato de áudio inválido: \(option.id)"))
+                return .failure(
+                    ToolError.invalidInput(
+                        L10n.t(
+                            "Formato de áudio inválido: \(option.id)",
+                            en: "Invalid audio format: \(option.id)",
+                            es: "Formato de audio inválido: \(option.id)"
+                        )
+                    )
+                )
             }
 
             let res = ShellRunner.run(executable: ffmpeg, arguments: args, timeout: 600)
@@ -105,7 +113,15 @@ enum MediaEngines {
         case "extract_mp3":
             args += ["-vn", "-ar", "44100", "-codec:a", "libmp3lame", "-b:a", "192k", "-write_id3v2", "1", "-id3v2_version", "3", tempURL.path]
         default:
-            return .failure(ToolError.invalidInput("Formato de vídeo inválido: \(option.id)"))
+            return .failure(
+                ToolError.invalidInput(
+                    L10n.t(
+                        "Formato de vídeo inválido: \(option.id)",
+                        en: "Invalid video format: \(option.id)",
+                        es: "Formato de video inválido: \(option.id)"
+                    )
+                )
+            )
         }
 
         let res = ShellRunner.run(executable: ffmpeg, arguments: args, timeout: 1800)
@@ -143,12 +159,28 @@ enum MediaEngines {
             let doc = PDFDocument()
             for (idx, imgURL) in inputURLs.enumerated() {
                 guard let nsImg = loadNSImage(at: imgURL), let page = PDFPage(image: nsImg) else {
-                    return .failure(ToolError.invalidInput("Não foi possível ler a imagem: \(imgURL.lastPathComponent)"))
+                    return .failure(
+                        ToolError.invalidInput(
+                            L10n.t(
+                                "Não foi possível ler a imagem: \(imgURL.lastPathComponent)",
+                                en: "Could not read image: \(imgURL.lastPathComponent)",
+                                es: "No se pudo leer la imagen: \(imgURL.lastPathComponent)"
+                            )
+                        )
+                    )
                 }
                 doc.insert(page, at: idx)
             }
             guard doc.write(to: tempURL) else {
-                return .failure(ToolError.commandFailed("Falha ao gravar PDF das imagens."))
+                return .failure(
+                    ToolError.commandFailed(
+                        L10n.t(
+                            "Falha ao gravar PDF das imagens.",
+                            en: "Failed to write PDF from images.",
+                            es: "Error al guardar PDF de las imágenes."
+                        )
+                    )
+                )
             }
             do {
                 try ShellRunner.replaceAtomically(tempURL: tempURL, targetURL: outputURL)
@@ -163,12 +195,28 @@ enum MediaEngines {
         if option.id == "webp" || inExt == "webp" {
             if option.id == "webp" {
                 guard let cgImg = loadCGImage(at: primary) else {
-                    return .failure(ToolError.invalidInput("Não foi possível carregar a imagem: \(primary.lastPathComponent)"))
+                    return .failure(
+                        ToolError.invalidInput(
+                            L10n.t(
+                                "Não foi possível carregar a imagem: \(primary.lastPathComponent)",
+                                en: "Could not load image: \(primary.lastPathComponent)",
+                                es: "No se pudo cargar la imagen: \(primary.lastPathComponent)"
+                            )
+                        )
+                    )
                 }
                 let tmpPNG = folder.appendingPathComponent(".sotao57-webp-src-\(UUID().uuidString).png")
                 defer { try? FileManager.default.removeItem(at: tmpPNG) }
                 guard writePNGTemp(cgImg, to: tmpPNG) else {
-                    return .failure(ToolError.commandFailed("Falha ao preparar imagem temporária para WebP."))
+                    return .failure(
+                        ToolError.commandFailed(
+                            L10n.t(
+                                "Falha ao preparar imagem temporária para WebP.",
+                                en: "Failed to prepare temporary image for WebP.",
+                                es: "Error al preparar imagen temporal para WebP."
+                            )
+                        )
+                    )
                 }
                 if let cwebp = ShellRunner.findExecutable(["cwebp"]) {
                     let res = ShellRunner.run(executable: cwebp, arguments: ["-quiet", "-q", "88", tmpPNG.path, "-o", tempURL.path], timeout: 120)
@@ -200,14 +248,30 @@ enum MediaEngines {
                 return .failure(ToolError.missingTool("cwebp (webp)", "brew install webp"))
             } else {
                 guard let cgImg = loadCGImage(at: primary) else {
-                    return .failure(ToolError.invalidInput("Não foi possível decodificar a imagem WebP."))
+                    return .failure(
+                        ToolError.invalidInput(
+                            L10n.t(
+                                "Não foi possível decodificar a imagem WebP.",
+                                en: "Could not decode WebP image.",
+                                es: "No se pudo decodificar la imagen WebP."
+                            )
+                        )
+                    )
                 }
                 return writeCGImage(cgImg, to: tempURL, finalURL: outputURL, targetID: option.id)
             }
         }
 
         guard let cgImg = loadCGImage(at: primary) else {
-            return .failure(ToolError.invalidInput("Não foi possível carregar a imagem: \(primary.lastPathComponent)"))
+            return .failure(
+                ToolError.invalidInput(
+                    L10n.t(
+                        "Não foi possível carregar a imagem: \(primary.lastPathComponent)",
+                        en: "Could not load image: \(primary.lastPathComponent)",
+                        es: "No se pudo cargar la imagen: \(primary.lastPathComponent)"
+                    )
+                )
+            )
         }
         return writeCGImage(cgImg, to: tempURL, finalURL: outputURL, targetID: option.id)
     }
@@ -262,18 +326,43 @@ enum MediaEngines {
         case "jpg": utType = .jpeg
         case "heic": utType = .heic
         case "tiff": utType = .tiff
-        default: return .failure(ToolError.invalidInput("Formato de imagem inválido: \(targetID)"))
+        default:
+            return .failure(
+                ToolError.invalidInput(
+                    L10n.t(
+                        "Formato de imagem inválido: \(targetID)",
+                        en: "Invalid image format: \(targetID)",
+                        es: "Formato de imagen inválido: \(targetID)"
+                    )
+                )
+            )
         }
 
         guard let dest = CGImageDestinationCreateWithURL(tempURL as CFURL, utType.identifier as CFString, 1, nil) else {
-            return .failure(ToolError.commandFailed("Este Mac não suporta gravar o formato \(targetID.uppercased())."))
+            return .failure(
+                ToolError.commandFailed(
+                    L10n.t(
+                        "Este Mac não suporta gravar o formato \(targetID.uppercased()).",
+                        en: "This Mac cannot write \(targetID.uppercased()) files.",
+                        es: "Este Mac no admite escribir el formato \(targetID.uppercased())."
+                    )
+                )
+            )
         }
         let props: [CFString: Any] = (targetID == "jpg" || targetID == "heic")
             ? [kCGImageDestinationLossyCompressionQuality: 0.90]
             : [:]
         CGImageDestinationAddImage(dest, cgImage, props as CFDictionary)
         guard CGImageDestinationFinalize(dest) else {
-            return .failure(ToolError.commandFailed("Falha ao finalizar a imagem \(targetID.uppercased())."))
+            return .failure(
+                ToolError.commandFailed(
+                    L10n.t(
+                        "Falha ao finalizar a imagem \(targetID.uppercased()).",
+                        en: "Failed to finalize \(targetID.uppercased()) image.",
+                        es: "Error al finalizar la imagen \(targetID.uppercased())."
+                    )
+                )
+            )
         }
         do {
             try ShellRunner.replaceAtomically(tempURL: tempURL, targetURL: finalURL)
@@ -304,12 +393,20 @@ enum MediaEngines {
         // 1. From PDF to text / markdown / rtf / html / docx
         if inExt == "pdf" {
             guard let doc = PDFDocument(url: cleanInput) else {
-                return .failure(ToolError.invalidInput("Não foi possível abrir o PDF."))
+                return .failure(
+                    ToolError.invalidInput(
+                        L10n.t(
+                            "Não foi possível abrir o PDF.",
+                            en: "Could not open PDF.",
+                            es: "No se pudo abrir el PDF."
+                        )
+                    )
+                )
             }
             var extracted = (doc.string ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             if extracted.isEmpty {
                 // Scanned PDF: run Apple Vision OCR automatically!
-                switch PDFVisionEngine.extractOCRText(inputURL: cleanInput, languages: OCRLanguagePreset.ptEn.codes, progress: nil) {
+                switch PDFVisionEngine.extractOCRText(inputURL: cleanInput, languages: OCRLanguagePreset.defaultForSystem.codes, progress: nil) {
                 case .success(let ocrTxtURL):
                     extracted = (try? String(contentsOf: ocrTxtURL, encoding: .utf8)) ?? ""
                     if outExt == "txt" {
@@ -322,7 +419,15 @@ enum MediaEngines {
                 }
             }
             guard !extracted.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-                return .failure(ToolError.invalidInput("O PDF não contém texto reconhecível."))
+                return .failure(
+                    ToolError.invalidInput(
+                        L10n.t(
+                            "O PDF não contém texto reconhecível.",
+                            en: "The PDF contains no recognizable text.",
+                            es: "El PDF no contiene texto reconocible."
+                        )
+                    )
+                )
             }
             if outExt == "txt" || outExt == "md" {
                 do {
@@ -489,17 +594,41 @@ enum MediaEngines {
             return .failure(ToolError.commandFailed(res.stderr))
         }
 
-        return .failure(ToolError.commandFailed("Não foi possível converter de .\(inExt) para .\(outExt)."))
+        return .failure(
+            ToolError.commandFailed(
+                L10n.t(
+                    "Não foi possível converter de .\(inExt) para .\(outExt).",
+                    en: "Could not convert from .\(inExt) to .\(outExt).",
+                    es: "No se pudo convertir de .\(inExt) a .\(outExt)."
+                )
+            )
+        )
     }
 
     private static func renderDocumentToPDFNatively(inputURL: URL, tempURL: URL, outputURL: URL) -> Result<URL, Error> {
         guard let rawText = try? String(contentsOf: inputURL, encoding: .utf8) else {
-            return .failure(ToolError.invalidInput("Não foi possível ler o documento como texto UTF-8."))
+            return .failure(
+                ToolError.invalidInput(
+                    L10n.t(
+                        "Não foi possível ler o documento como texto UTF-8.",
+                        en: "Could not read document as UTF-8 text.",
+                        es: "No se pudo leer el documento como texto UTF-8."
+                    )
+                )
+            )
         }
 
         var pageBox = CGRect(x: 0, y: 0, width: 595, height: 842) // A4
         guard let ctx = CGContext(tempURL as CFURL, mediaBox: &pageBox, nil) else {
-            return .failure(ToolError.commandFailed("Não foi possível criar o contexto PDF."))
+            return .failure(
+                ToolError.commandFailed(
+                    L10n.t(
+                        "Não foi possível criar o contexto PDF.",
+                        en: "Could not create PDF graphics context.",
+                        es: "No se pudo crear el contexto PDF."
+                    )
+                )
+            )
         }
 
         let font = NSFont.systemFont(ofSize: 11)

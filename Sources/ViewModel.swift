@@ -12,20 +12,44 @@ enum OperationState: Equatable {
 
 final class AppViewModel: ObservableObject {
     static let shared = AppViewModel()
+    static let setupCompletedKey = "sotao57.setupCompleted.v1_1"
 
+    // Main navigation & workspace
     @Published var activeCategory: ToolCategory? = nil
     @Published var inputURLs: [URL] = []
     @Published var selectedOption: ToolOption = ToolCategory.audio.options[0]
-    @Published var ocrLanguage: OCRLanguagePreset = .ptEn
+    @Published var ocrLanguage: OCRLanguagePreset = OCRLanguagePreset.defaultForSystem
     @Published var videoQuality: VideoQuality = .balanced
     @Published var pdfPassword: String = ""
     @Published var operationState: OperationState = .idle
+    @Published var operationProgress: Double? = nil
     @Published var isDropTargeted: Bool = false
     @Published var copiedHint: Bool = false
 
-    @Published var showingDependencies: Bool = false
-    @Published var showingAbout: Bool = false
+    // Web Downloader
+    @Published var webURL: String = ""
+    @Published var downloadDirectory: URL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
+        ?? URL(fileURLWithPath: NSHomeDirectory())
+
+    // Setup Wizard & Dependencies
+    @Published var showingSetupWizard: Bool = false
+    @Published var wizardStep: SetupWizardStep = .check
     @Published var dependencies: [DependencyStatus] = []
+    @Published var hasBrew: Bool = false
+    @Published var selectedBrewPackages: Set<String> = []
+    @Published var packageStates: [String: PackageInstallState] = [:]
+    @Published var wizardProgress: Double = 0.0
+    @Published var wizardCurrentPackage: String = ""
+    @Published var wizardLogLines: [String] = []
+    @Published var wizardAuthError: String? = nil
+    @Published var wizardInstalledCount: Int = 0
+    @Published var wizardFailedCount: Int = 0
+    @Published var wizardIsWorking: Bool = false
+
+    // Manual-only GitHub Update Checker & About
+    @Published var showingUpdateSheet: Bool = false
+    @Published var updateState: UpdateCheckState = .idle
+    @Published var showingAbout: Bool = false
 
     var primaryInputURL: URL? { inputURLs.first }
 
@@ -35,12 +59,43 @@ final class AppViewModel: ObservableObject {
     }
 
     var canExecute: Bool {
-        guard !isRunning, !inputURLs.isEmpty else { return false }
+        guard !isRunning else { return false }
+        if activeCategory == .webDownload {
+            return !webURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+        guard !inputURLs.isEmpty else { return false }
         if selectedOption.id == "merge" && inputURLs.count < 2 {
             return false
         }
         return true
     }
+
+    var missingCoreDependenciesCount: Int {
+        dependencies.filter { !$0.isNative && $0.defaultSelected && !$0.isInstalled }.count
+    }
+
+    var missingOptionalDependencies: [DependencyStatus] {
+        dependencies.filter { !$0.isNative && !$0.isInstalled }
+    }
+
+    // MARK: - App Lifecycle (First-launch Setup Wizard, NEVER auto-checks updates)
+
+    func handleAppLaunched() {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let deps = ShellRunner.checkDependencies()
+            let brewFound = ShellRunner.findBrew() != nil
+            DispatchQueue.main.async {
+                self.dependencies = deps
+                self.hasBrew = brewFound
+                let completed = UserDefaults.standard.bool(forKey: Self.setupCompletedKey)
+                if !completed && !self.showingSetupWizard {
+                    self.openSetupWizard(usingExistingCheck: true)
+                }
+            }
+        }
+    }
+
+    // MARK: - Navigation & Workspace
 
     func openCategory(_ category: ToolCategory) {
         activeCategory = category
@@ -48,6 +103,7 @@ final class AppViewModel: ObservableObject {
         selectedOption = category.options[0]
         pdfPassword = ""
         operationState = .idle
+        operationProgress = nil
         copiedHint = false
     }
 
@@ -57,6 +113,7 @@ final class AppViewModel: ObservableObject {
         inputURLs = []
         pdfPassword = ""
         operationState = .idle
+        operationProgress = nil
         copiedHint = false
     }
 
@@ -74,6 +131,7 @@ final class AppViewModel: ObservableObject {
         inputURLs = []
         pdfPassword = ""
         operationState = .idle
+        operationProgress = nil
         copiedHint = false
     }
 
@@ -94,9 +152,9 @@ final class AppViewModel: ObservableObject {
         }
 
         operationState = .idle
+        operationProgress = nil
         copiedHint = false
 
-        // Smart default: pick a different output extension if single input matches current target
         if let first = inputURLs.first,
            let cat = activeCategory,
            selectedOption.fileSuffix.isEmpty,
@@ -124,14 +182,14 @@ final class AppViewModel: ObservableObject {
     }
 
     func openFilePicker(append: Bool = false) {
-        guard let cat = activeCategory else { return }
+        guard let cat = activeCategory, cat != .webDownload else { return }
         let panel = NSOpenPanel()
         panel.canChooseFiles = true
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = selectedOption.supportsMultipleInputs
         panel.message = selectedOption.supportsMultipleInputs
-            ? "Selecione um ou mais ficheiros"
-            : "Escolha o ficheiro para processar"
+            ? L10n.t("Selecione um ou mais arquivos", en: "Select one or more files", es: "Selecciona uno o más archivos")
+            : L10n.t("Escolha o arquivo para processar", en: "Choose a file to process", es: "Elige el archivo a procesar")
 
         let allowed = cat.acceptedExtensions.compactMap { UTType(filenameExtension: $0) }
         if !allowed.isEmpty {
@@ -143,7 +201,41 @@ final class AppViewModel: ObservableObject {
         }
     }
 
+    func pasteWebURL() {
+        if let str = NSPasteboard.general.string(forType: .string) {
+            webURL = str.trimmingCharacters(in: .whitespacesAndNewlines)
+            if case .error = operationState {
+                operationState = .idle
+            }
+        }
+    }
+
+    func clearWebURL() {
+        webURL = ""
+        operationState = .idle
+        operationProgress = nil
+        copiedHint = false
+    }
+
+    func pickDownloadDirectory() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.directoryURL = downloadDirectory
+        panel.message = L10n.t(
+            "Escolha a pasta onde os downloads serão salvos",
+            en: "Choose the folder where downloads will be saved",
+            es: "Elige la carpeta donde se guardarán las descargas"
+        )
+        if panel.runModal() == .OK, let url = panel.url {
+            downloadDirectory = url.standardizedFileURL
+        }
+    }
+
     func handleDrop(providers: [NSItemProvider]) -> Bool {
+        guard activeCategory != .webDownload else { return false }
         let matching = providers.filter { $0.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) }
         guard !matching.isEmpty else { return false }
 
@@ -180,20 +272,258 @@ final class AppViewModel: ObservableObject {
         return true
     }
 
+    // MARK: - Setup Wizard
+
     func refreshDependencies() {
         dependencies = ShellRunner.checkDependencies()
+        hasBrew = ShellRunner.findBrew() != nil
     }
 
+    func openSetupWizard(usingExistingCheck: Bool = false) {
+        if !usingExistingCheck {
+            refreshDependencies()
+        }
+        let defaults = dependencies
+            .filter { !$0.isNative && !$0.isInstalled && $0.defaultSelected }
+            .map(\.id)
+        selectedBrewPackages = Set(defaults)
+        wizardStep = .check
+        wizardProgress = 0.0
+        wizardCurrentPackage = ""
+        wizardLogLines = []
+        wizardAuthError = nil
+        packageStates = [:]
+        wizardInstalledCount = 0
+        wizardFailedCount = 0
+        wizardIsWorking = false
+        showingSetupWizard = true
+    }
+
+    func recheckDependenciesInWizard() {
+        refreshDependencies()
+        let missingIDs = Set(missingOptionalDependencies.map(\.id))
+        selectedBrewPackages = selectedBrewPackages.intersection(missingIDs)
+        if selectedBrewPackages.isEmpty {
+            let defaults = dependencies
+                .filter { !$0.isNative && !$0.isInstalled && $0.defaultSelected }
+                .map(\.id)
+            selectedBrewPackages = Set(defaults)
+        }
+    }
+
+    func toggleBrewPackage(_ id: String) {
+        if selectedBrewPackages.contains(id) {
+            selectedBrewPackages.remove(id)
+        } else {
+            selectedBrewPackages.insert(id)
+        }
+    }
+
+    func startWizardInstall() {
+        guard !wizardIsWorking else { return }
+        let selectedDeps = dependencies.filter { selectedBrewPackages.contains($0.id) && !$0.isNative }
+        let needBrewInstall = !hasBrew
+        guard needBrewInstall || !selectedDeps.isEmpty else {
+            wizardStep = .done
+            return
+        }
+
+        wizardAuthError = nil
+        wizardIsWorking = true
+
+        let needsAdminPrompt = needBrewInstall || selectedDeps.contains(where: { $0.isCask })
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            var customBrewPrefix: String? = nil
+            if needsAdminPrompt {
+                switch DependencyInstaller.requestAdminAuthorization(prepareBrewPrefix: needBrewInstall) {
+                case .success(let prefix):
+                    customBrewPrefix = prefix
+                case .failure(let err):
+                    DispatchQueue.main.async {
+                        self.wizardAuthError = err.localizedDescription
+                        self.wizardIsWorking = false
+                    }
+                    return
+                }
+            }
+
+            DispatchQueue.main.async {
+                self.wizardStep = .installing
+                self.wizardLogLines = []
+                self.packageStates = Dictionary(uniqueKeysWithValues: selectedDeps.map { ($0.id, .pending) })
+                self.wizardInstalledCount = 0
+                self.wizardFailedCount = 0
+                self.wizardProgress = 0.04
+            }
+
+            let totalSteps = Double((needBrewInstall ? 1 : 0) + max(selectedDeps.count, 0))
+            var completedSteps = 0.0
+            var brewExecutable = ShellRunner.findBrew()
+
+            func appendLog(_ line: String) {
+                let clean = line.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !clean.isEmpty else { return }
+                DispatchQueue.main.async {
+                    self.wizardLogLines.append(clean)
+                    if self.wizardLogLines.count > 120 {
+                        self.wizardLogLines.removeFirst(self.wizardLogLines.count - 120)
+                    }
+                }
+            }
+
+            if needBrewInstall {
+                let prefix = customBrewPrefix ?? DependencyInstaller.defaultBrewPrefix
+                DispatchQueue.main.async {
+                    self.wizardCurrentPackage = L10n.t(
+                        "Preparando Homebrew (\(prefix))…",
+                        en: "Setting up Homebrew (\(prefix))…",
+                        es: "Configurando Homebrew (\(prefix))…"
+                    )
+                }
+                switch DependencyInstaller.bootstrapHomebrew(prefix: prefix, onLog: appendLog) {
+                case .success(let path):
+                    brewExecutable = path
+                    completedSteps += 1.0
+                    DispatchQueue.main.async {
+                        self.hasBrew = true
+                        self.wizardProgress = min(0.98, completedSteps / max(1.0, totalSteps))
+                    }
+                case .failure(let err):
+                    appendLog(err.localizedDescription)
+                    DispatchQueue.main.async {
+                        self.wizardFailedCount = max(1, selectedDeps.count)
+                        for dep in selectedDeps {
+                            self.packageStates[dep.id] = .failed(err.localizedDescription)
+                        }
+                        self.wizardProgress = 1.0
+                        self.wizardIsWorking = false
+                        self.wizardStep = .done
+                    }
+                    return
+                }
+            }
+
+            guard let brewPath = brewExecutable else {
+                DispatchQueue.main.async {
+                    self.wizardFailedCount = max(1, selectedDeps.count)
+                    self.wizardProgress = 1.0
+                    self.wizardIsWorking = false
+                    self.wizardStep = .done
+                }
+                return
+            }
+
+            var okCount = 0
+            var failCount = 0
+
+            for (idx, dep) in selectedDeps.enumerated() {
+                DispatchQueue.main.async {
+                    self.packageStates[dep.id] = .installing
+                    self.wizardCurrentPackage = L10n.t(
+                        "Instalando \(idx + 1)/\(selectedDeps.count): \(dep.name)…",
+                        en: "Installing \(idx + 1)/\(selectedDeps.count): \(dep.name)…",
+                        es: "Instalando \(idx + 1)/\(selectedDeps.count): \(dep.name)…"
+                    )
+                }
+                appendLog("==> brew install \(dep.isCask ? "--cask " : "")\(dep.brewPackage ?? dep.id)")
+
+                switch DependencyInstaller.installPackage(brewPath: brewPath, dep: dep, onLog: appendLog) {
+                case .success:
+                    okCount += 1
+                    completedSteps += 1.0
+                    DispatchQueue.main.async {
+                        self.packageStates[dep.id] = .installed
+                        self.wizardInstalledCount = okCount
+                        self.wizardProgress = min(0.99, completedSteps / max(1.0, totalSteps))
+                    }
+                case .failure(let err):
+                    failCount += 1
+                    completedSteps += 1.0
+                    appendLog("ERROR [\(dep.name)]: \(err.localizedDescription)")
+                    DispatchQueue.main.async {
+                        self.packageStates[dep.id] = .failed(err.localizedDescription)
+                        self.wizardFailedCount = failCount
+                        self.wizardProgress = min(0.99, completedSteps / max(1.0, totalSteps))
+                    }
+                }
+            }
+
+            let updatedDeps = ShellRunner.checkDependencies()
+            let brewNow = ShellRunner.findBrew() != nil
+            DispatchQueue.main.async {
+                self.dependencies = updatedDeps
+                self.hasBrew = brewNow
+                self.wizardProgress = 1.0
+                self.wizardCurrentPackage = ""
+                self.wizardIsWorking = false
+                self.wizardStep = .done
+            }
+        }
+    }
+
+    func finishWizardWithoutRestart() {
+        UserDefaults.standard.set(true, forKey: Self.setupCompletedKey)
+        showingSetupWizard = false
+    }
+
+    func finishWizardAndRestart() {
+        UserDefaults.standard.set(true, forKey: Self.setupCompletedKey)
+        let bundlePath = Bundle.main.bundlePath
+        if bundlePath.hasSuffix(".app") {
+            let escaped = bundlePath.replacingOccurrences(of: "'", with: "'\\''")
+            let proc = Process()
+            proc.executableURL = URL(fileURLWithPath: "/bin/sh")
+            proc.arguments = ["-c", "sleep 0.6 && /usr/bin/open -n '\(escaped)'"]
+            proc.standardInput = FileHandle.nullDevice
+            proc.standardOutput = FileHandle.nullDevice
+            proc.standardError = FileHandle.nullDevice
+            try? proc.run()
+        }
+        showingSetupWizard = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            NSApp.terminate(nil)
+        }
+    }
+
+    // MARK: - Manual GitHub Update Checker
+
+    func openUpdateCheckerAndRun() {
+        showingUpdateSheet = true
+        runManualUpdateCheck()
+    }
+
+    func runManualUpdateCheck() {
+        updateState = .checking
+        UpdateChecker.checkLatestRelease { newState in
+            DispatchQueue.main.async {
+                self.updateState = newState
+            }
+        }
+    }
+
+    // MARK: - Execution
+
     func executeActiveTool() {
-        guard let cat = activeCategory, !inputURLs.isEmpty else { return }
+        guard let cat = activeCategory else { return }
+        if cat != .webDownload && inputURLs.isEmpty { return }
+        if cat == .webDownload && webURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return }
+
         let option = selectedOption
         let files = inputURLs
         let langCodes = ocrLanguage.codes
         let vidQuality = videoQuality
         let pwd = pdfPassword
+        let linkURL = webURL
+        let destDir = downloadDirectory
 
         copiedHint = false
-        operationState = .running("Processando \(option.title)…")
+        operationProgress = (cat == .webDownload) ? 0.02 : nil
+        operationState = .running(
+            cat == .webDownload
+                ? L10n.t("Preparando download…", en: "Preparing download…", es: "Preparando descarga…")
+                : L10n.t("Processando \(option.title)…", en: "Processing \(option.title)…", es: "Procesando \(option.title)…")
+        )
 
         DispatchQueue.global(qos: .userInitiated).async {
             let result = Self.dispatchConversion(
@@ -203,14 +533,23 @@ final class AppViewModel: ObservableObject {
                 ocrLanguages: langCodes,
                 videoQuality: vidQuality,
                 password: pwd,
+                webURL: linkURL,
+                downloadDirectory: destDir,
                 progress: { msg in
                     DispatchQueue.main.async {
+                        self.operationState = .running(msg)
+                    }
+                },
+                fractionProgress: { pct, msg in
+                    DispatchQueue.main.async {
+                        self.operationProgress = pct
                         self.operationState = .running(msg)
                     }
                 }
             )
 
             DispatchQueue.main.async {
+                self.operationProgress = nil
                 switch result {
                 case .success(let outURL):
                     let sizeText = self.formattedFileSize(outURL)
@@ -229,8 +568,29 @@ final class AppViewModel: ObservableObject {
         ocrLanguages: [String],
         videoQuality: VideoQuality,
         password: String,
-        progress: ((String) -> Void)?
+        webURL: String = "",
+        downloadDirectory: URL? = nil,
+        progress: ((String) -> Void)?,
+        fractionProgress: ((Double?, String) -> Void)? = nil
     ) -> Result<URL, Error> {
+        if category == .webDownload {
+            let dir = downloadDirectory
+                ?? FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
+                ?? URL(fileURLWithPath: NSHomeDirectory())
+            return WebDownloadEngine.download(
+                urlString: webURL,
+                destinationDir: dir,
+                option: option,
+                progress: { pct, msg in
+                    if let fractionProgress {
+                        fractionProgress(pct, msg)
+                    } else {
+                        progress?(msg)
+                    }
+                }
+            )
+        }
+
         guard let first = inputURLs.first else {
             return .failure(ToolError.emptyInput)
         }
@@ -239,6 +599,8 @@ final class AppViewModel: ObservableObject {
             return MediaEngines.convertAudio(inputURL: first, option: option)
         case .video:
             return MediaEngines.convertVideo(inputURL: first, option: option, quality: videoQuality)
+        case .webDownload:
+            return .failure(ToolError.emptyInput)
         case .text:
             return MediaEngines.convertText(inputURL: first, option: option)
         case .spreadsheet:
@@ -260,7 +622,15 @@ final class AppViewModel: ObservableObject {
             case "compress":
                 return PDFVisionEngine.compressPDF(inputURL: first, option: option)
             default:
-                return .failure(ToolError.invalidInput("Operação PDF desconhecida: \(option.id)"))
+                return .failure(
+                    ToolError.invalidInput(
+                        L10n.t(
+                            "Operação PDF desconhecida: \(option.id)",
+                            en: "Unknown PDF operation: \(option.id)",
+                            es: "Operación PDF desconocida: \(option.id)"
+                        )
+                    )
+                )
             }
         }
     }

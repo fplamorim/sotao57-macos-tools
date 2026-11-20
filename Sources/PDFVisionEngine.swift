@@ -117,13 +117,37 @@ enum PDFVisionEngine {
             return .failure(ToolError.inputMissing(cleanInput.path))
         }
         guard let doc = PDFDocument(url: cleanInput) else {
-            return .failure(ToolError.invalidInput("Não foi possível abrir o PDF. Se tiver senha, use «Desbloquear PDF» primeiro."))
+            return .failure(
+                ToolError.invalidInput(
+                    L10n.t(
+                        "Não foi possível abrir o PDF. Se tiver senha, use «Desbloquear PDF» primeiro.",
+                        en: "Could not open PDF. If it has a password, use «Unlock PDF» first.",
+                        es: "No se pudo abrir el PDF. Si tiene contraseña, usa «Desbloquear PDF» primero."
+                    )
+                )
+            )
         }
         if doc.isLocked {
-            return .failure(ToolError.invalidInput("Este PDF está protegido por senha. Desbloqueie primeiro em «Desbloquear PDF»."))
+            return .failure(
+                ToolError.invalidInput(
+                    L10n.t(
+                        "Este PDF está protegido por senha. Desbloqueie primeiro em «Desbloquear PDF».",
+                        en: "This PDF is password-protected. Unlock it first using «Unlock PDF».",
+                        es: "Este PDF está protegido por contraseña. Desbloquéalo primero en «Desbloquear PDF»."
+                    )
+                )
+            )
         }
         guard doc.pageCount > 0 else {
-            return .failure(ToolError.invalidInput("O PDF não possui páginas."))
+            return .failure(
+                ToolError.invalidInput(
+                    L10n.t(
+                        "O PDF não possui páginas.",
+                        en: "The PDF has no pages.",
+                        es: "El PDF no tiene páginas."
+                    )
+                )
+            )
         }
 
         let outputURL = option.outputURL(for: cleanInput)
@@ -133,11 +157,25 @@ enum PDFVisionEngine {
 
         var initialRect = doc.page(at: 0)?.bounds(for: .mediaBox) ?? CGRect(x: 0, y: 0, width: 595, height: 842)
         guard let pdfContext = CGContext(tempURL as CFURL, mediaBox: &initialRect, nil) else {
-            return .failure(ToolError.commandFailed("Não foi possível iniciar a criação do PDF com OCR."))
+            return .failure(
+                ToolError.commandFailed(
+                    L10n.t(
+                        "Não foi possível iniciar a criação do PDF com OCR.",
+                        en: "Could not initialize searchable PDF creation.",
+                        es: "No se pudo iniciar la creación del PDF con OCR."
+                    )
+                )
+            )
         }
 
         for idx in 0..<doc.pageCount {
-            progress?("OCR página \(idx + 1) de \(doc.pageCount)…")
+            progress?(
+                L10n.t(
+                    "OCR página \(idx + 1) de \(doc.pageCount)…",
+                    en: "OCR page \(idx + 1) of \(doc.pageCount)…",
+                    es: "OCR página \(idx + 1) de \(doc.pageCount)…"
+                )
+            )
             guard let page = doc.page(at: idx),
                   let cgImg = renderPageToCGImage(page, dpi: 200) else {
                 continue
@@ -181,14 +219,36 @@ enum PDFVisionEngine {
             firstRect = CGRect(x: 0, y: 0, width: CGFloat(firstImg.width), height: CGFloat(firstImg.height))
         }
         guard let pdfContext = CGContext(tempURL as CFURL, mediaBox: &firstRect, nil) else {
-            return .failure(ToolError.commandFailed("Não foi possível iniciar a geração do PDF."))
+            return .failure(
+                ToolError.commandFailed(
+                    L10n.t(
+                        "Não foi possível iniciar a geração do PDF.",
+                        en: "Could not start PDF generation.",
+                        es: "No se pudo iniciar la generación del PDF."
+                    )
+                )
+            )
         }
 
         for (idx, imgURL) in inputURLs.enumerated() {
-            progress?("OCR imagem \(idx + 1) de \(inputURLs.count)…")
+            progress?(
+                L10n.t(
+                    "OCR imagem \(idx + 1) de \(inputURLs.count)…",
+                    en: "OCR image \(idx + 1) of \(inputURLs.count)…",
+                    es: "OCR imagen \(idx + 1) de \(inputURLs.count)…"
+                )
+            )
             guard let cgImg = MediaEngines.loadCGImage(at: imgURL) else {
                 pdfContext.closePDF()
-                return .failure(ToolError.invalidInput("Não foi possível ler a imagem: \(imgURL.lastPathComponent)"))
+                return .failure(
+                    ToolError.invalidInput(
+                        L10n.t(
+                            "Não foi possível ler a imagem: \(imgURL.lastPathComponent)",
+                            en: "Could not read image: \(imgURL.lastPathComponent)",
+                            es: "No se pudo leer la imagen: \(imgURL.lastPathComponent)"
+                        )
+                    )
+                )
             }
             let pageRect = CGRect(x: 0, y: 0, width: CGFloat(cgImg.width), height: CGFloat(cgImg.height))
             let observations = (try? recognizeText(in: cgImg, languages: languages)) ?? []
@@ -225,13 +285,31 @@ enum PDFVisionEngine {
         var allPagesText: [String] = []
         if cleanInput.pathExtension.lowercased() == "pdf" {
             guard let doc = PDFDocument(url: cleanInput) else {
-                return .failure(ToolError.invalidInput("Não foi possível abrir o PDF."))
+                return .failure(
+                    ToolError.invalidInput(
+                        L10n.t("Não foi possível abrir o PDF.", en: "Could not open PDF.", es: "No se pudo abrir el PDF.")
+                    )
+                )
             }
             if doc.isLocked {
-                return .failure(ToolError.invalidInput("PDF protegido por senha. Desbloqueie primeiro."))
+                return .failure(
+                    ToolError.invalidInput(
+                        L10n.t(
+                            "PDF protegido por senha. Desbloqueie primeiro.",
+                            en: "PDF is password-protected. Unlock it first.",
+                            es: "PDF protegido por contraseña. Desbloquéalo primero."
+                        )
+                    )
+                )
             }
             for idx in 0..<doc.pageCount {
-                progress?("Extraindo texto (página \(idx + 1)/\(doc.pageCount))…")
+                progress?(
+                    L10n.t(
+                        "Extraindo texto (página \(idx + 1)/\(doc.pageCount))…",
+                        en: "Extracting text (page \(idx + 1)/\(doc.pageCount))…",
+                        es: "Extrayendo texto (página \(idx + 1)/\(doc.pageCount))…"
+                    )
+                )
                 guard let page = doc.page(at: idx),
                       let cgImg = renderPageToCGImage(page, dpi: 200) else {
                     continue
@@ -245,15 +323,20 @@ enum PDFVisionEngine {
                     }
                     .map(\.text)
                 if !lines.isEmpty {
-                    let header = doc.pageCount > 1 ? "=== Página \(idx + 1) ===\n" : ""
+                    let pageWord = L10n.t("Página", en: "Page", es: "Página")
+                    let header = doc.pageCount > 1 ? "=== \(pageWord) \(idx + 1) ===\n" : ""
                     allPagesText.append(header + lines.joined(separator: "\n"))
                 }
             }
         } else {
             guard let cgImg = MediaEngines.loadCGImage(at: cleanInput) else {
-                return .failure(ToolError.invalidInput("Não foi possível carregar a imagem."))
+                return .failure(
+                    ToolError.invalidInput(
+                        L10n.t("Não foi possível carregar a imagem.", en: "Could not load image.", es: "No se pudo cargar la imagen.")
+                    )
+                )
             }
-            progress?("Executando OCR na imagem…")
+            progress?(L10n.t("Executando OCR na imagem…", en: "Running OCR on image…", es: "Ejecutando OCR en imagen…"))
             let lines = ((try? recognizeText(in: cgImg, languages: languages)) ?? [])
                 .sorted {
                     if abs($0.boundingBox.minY - $1.boundingBox.minY) > 0.015 {
@@ -269,7 +352,15 @@ enum PDFVisionEngine {
 
         let finalText = allPagesText.joined(separator: "\n\n").trimmingCharacters(in: .whitespacesAndNewlines)
         guard !finalText.isEmpty else {
-            return .failure(ToolError.invalidInput("Nenhum texto foi reconhecido por OCR."))
+            return .failure(
+                ToolError.invalidInput(
+                    L10n.t(
+                        "Nenhum texto foi reconhecido por OCR.",
+                        en: "No text was recognized by OCR.",
+                        es: "No se reconoció ningún texto por OCR."
+                    )
+                )
+            )
         }
 
         do {
@@ -289,13 +380,25 @@ enum PDFVisionEngine {
             return .failure(ToolError.inputMissing(cleanInput.path))
         }
         guard let doc = PDFDocument(url: cleanInput) else {
-            return .failure(ToolError.invalidInput("Não foi possível abrir o arquivo como PDF."))
+            return .failure(
+                ToolError.invalidInput(
+                    L10n.t(
+                        "Não foi possível abrir o arquivo como PDF.",
+                        en: "Could not open file as PDF.",
+                        es: "No se pudo abrir el archivo como PDF."
+                    )
+                )
+            )
         }
 
         if !doc.isEncrypted && !doc.isLocked {
             return .failure(
                 ToolError.unlockFailed(
-                    "Este PDF não tem senha/bloqueio de encriptação. Se você não consegue editar o texto porque ele é escaneado (imagem), use a opção «OCR em PDF» acima."
+                    L10n.t(
+                        "Este PDF não tem senha/bloqueio de encriptação. Se você não consegue editar o texto porque ele é escaneado (imagem), use a opção «OCR em PDF» acima.",
+                        en: "This PDF has no password encryption. If you cannot edit text because pages are scanned images, use «PDF OCR» instead.",
+                        es: "Este PDF no tiene contraseña ni cifrado. Si no puedes editar texto porque está escaneado, usa «OCR en PDF»."
+                    )
                 )
             )
         }
@@ -326,19 +429,43 @@ enum PDFVisionEngine {
                 }
             }
             if res.stderr.lowercased().contains("invalid password") {
-                return .failure(ToolError.unlockFailed("Senha incorreta para desbloquear este PDF."))
+                return .failure(
+                    ToolError.unlockFailed(
+                        L10n.t(
+                            "Senha incorreta para desbloquear este PDF.",
+                            en: "Incorrect password for this PDF.",
+                            es: "Contraseña incorrecta para desbloquear este PDF."
+                        )
+                    )
+                )
             }
         }
 
         guard doc.unlock(withPassword: trimmedPassword) else {
-            return .failure(ToolError.unlockFailed("Senha incorreta ou PDF não pôde ser desbloqueado."))
+            return .failure(
+                ToolError.unlockFailed(
+                    L10n.t(
+                        "Senha incorreta ou PDF não pôde ser desbloqueado.",
+                        en: "Incorrect password or PDF could not be unlocked.",
+                        es: "Contraseña incorrecta o no se pudo desbloquear el PDF."
+                    )
+                )
+            )
         }
 
         // Write unlocked copy without password protection
         guard doc.write(to: tempURL, withOptions: nil),
               let verifyDoc = PDFDocument(url: tempURL),
               !verifyDoc.isLocked else {
-            return .failure(ToolError.unlockFailed("Não foi possível gravar a cópia desbloqueada deste PDF."))
+            return .failure(
+                ToolError.unlockFailed(
+                    L10n.t(
+                        "Não foi possível gravar a cópia desbloqueada deste PDF.",
+                        en: "Could not save the unlocked copy of this PDF.",
+                        es: "No se pudo guardar la copia desbloqueada del PDF."
+                    )
+                )
+            )
         }
 
         do {
@@ -354,7 +481,15 @@ enum PDFVisionEngine {
     static func mergePDFs(inputURLs: [URL], option: ToolOption) -> Result<URL, Error> {
         let pdfURLs = inputURLs.map(\.standardizedFileURL)
         guard pdfURLs.count >= 2 else {
-            return .failure(ToolError.invalidInput("Selecione pelo menos 2 PDFs para juntar."))
+            return .failure(
+                ToolError.invalidInput(
+                    L10n.t(
+                        "Selecione pelo menos 2 PDFs para juntar.",
+                        en: "Select at least 2 PDFs to merge.",
+                        es: "Selecciona al menos 2 PDFs para unir."
+                    )
+                )
+            )
         }
 
         let outputURL = option.outputURL(for: pdfURLs[0])
@@ -368,10 +503,26 @@ enum PDFVisionEngine {
                 return .failure(ToolError.inputMissing(url.path))
             }
             guard let part = PDFDocument(url: url) else {
-                return .failure(ToolError.invalidInput("Não foi possível ler o PDF: \(url.lastPathComponent)"))
+                return .failure(
+                    ToolError.invalidInput(
+                        L10n.t(
+                            "Não foi possível ler o PDF: \(url.lastPathComponent)",
+                            en: "Could not read PDF: \(url.lastPathComponent)",
+                            es: "No se pudo leer el PDF: \(url.lastPathComponent)"
+                        )
+                    )
+                )
             }
             if part.isLocked {
-                return .failure(ToolError.invalidInput("O PDF '\(url.lastPathComponent)' está protegido por senha."))
+                return .failure(
+                    ToolError.invalidInput(
+                        L10n.t(
+                            "O PDF '\(url.lastPathComponent)' está protegido por senha.",
+                            en: "PDF '\(url.lastPathComponent)' is password-protected.",
+                            es: "El PDF '\(url.lastPathComponent)' está protegido por contraseña."
+                        )
+                    )
+                )
             }
             for i in 0..<part.pageCount {
                 if let page = part.page(at: i) {
@@ -381,7 +532,11 @@ enum PDFVisionEngine {
         }
 
         guard merged.pageCount > 0, merged.write(to: tempURL) else {
-            return .failure(ToolError.commandFailed("Falha ao juntar os PDFs."))
+            return .failure(
+                ToolError.commandFailed(
+                    L10n.t("Falha ao juntar os PDFs.", en: "Failed to merge PDFs.", es: "Error al unir los PDFs.")
+                )
+            )
         }
 
         do {
@@ -431,11 +586,23 @@ enum PDFVisionEngine {
 
         // Native Quartz JPEG-recompressed PDF fallback
         guard let doc = PDFDocument(url: cleanInput), !doc.isLocked, doc.pageCount > 0 else {
-            return .failure(ToolError.invalidInput("Não foi possível abrir o PDF para comprimir."))
+            return .failure(
+                ToolError.invalidInput(
+                    L10n.t(
+                        "Não foi possível abrir o PDF para comprimir.",
+                        en: "Could not open PDF for compression.",
+                        es: "No se pudo abrir el PDF para comprimir."
+                    )
+                )
+            )
         }
         var box = doc.page(at: 0)?.bounds(for: .mediaBox) ?? CGRect(x: 0, y: 0, width: 595, height: 842)
         guard let ctx = CGContext(tempURL as CFURL, mediaBox: &box, nil) else {
-            return .failure(ToolError.commandFailed("Falha ao comprimir PDF."))
+            return .failure(
+                ToolError.commandFailed(
+                    L10n.t("Falha ao comprimir PDF.", en: "Failed to compress PDF.", es: "Error al comprimir PDF.")
+                )
+            )
         }
         for i in 0..<doc.pageCount {
             guard let page = doc.page(at: i),

@@ -79,10 +79,10 @@ let pill = NSBezierPath(roundedRect: pillRect, xRadius: 56, yRadius: 56)
 pill.fill()
 
 let pillAttrs: [NSAttributedString.Key: Any] = [
-    .font: NSFont.monospacedSystemFont(ofSize: 48, weight: .bold),
+    .font: NSFont.monospacedSystemFont(ofSize: 42, weight: .bold),
     .foregroundColor: NSColor.white,
 ]
-let pillText = "MAC TOOLS" as NSString
+let pillText = "macOS TOOLS" as NSString
 let pillSize = pillText.size(withAttributes: pillAttrs)
 pillText.draw(
     at: NSPoint(

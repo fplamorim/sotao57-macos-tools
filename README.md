@@ -1,39 +1,44 @@
-# SOTAO57 Basic Mac Tools
+# SOTAO57 macOS Tools
 
-Suíte nativa para macOS (SwiftUI + Apple Vision + PDFKit + `ImageIO`) para converter e tratar ficheiros **100% localmente**, sem assinaturas, sem envio para a nuvem e salvando sempre na **mesma pasta do ficheiro original**.
+Suíte utilitária nativa para macOS (SwiftUI + Apple Vision + PDFKit + `ImageIO`) para converter ficheiros, baixar vídeos/áudios públicos da Web, executar OCR pesquisável em PDFs e desbloquear PDFs protegidos — **sem assinaturas**, com interface **sempre clara** e adaptação automática ao **idioma do sistema** (Português, English e Español).
 
 Desenvolvido por **Fernando Amorim (SOTAO57)** sob a **Licença MIT**.
 
 ---
 
-## Módulos incluídos
+## Módulos incluídos (v1.1.0)
 
 1. **Áudio** — `.mp3` (192 kbps ID3v2.3), `.m4a` (AAC Apple), `.opus` (Opus 48 kHz mono para WhatsApp Web / mensageiros), `.ogg`, `.wav` (PCM 16-bit), `.flac`
 2. **Vídeo** — `.mp4` (H.264 + AAC com escolha de qualidade Padrão/Compacto), `.mov`, `.mkv`, `.webm`, `.gif` animado, e **Extrair Áudio (`.mp3`)**
-3. **Texto & Documentos** — `.docx`, `.pdf`, `.txt`, `.rtf`, `.html`, `.md`, `.odt`
-4. **Planilhas** — `.xlsx`, `.csv`, `.tsv`, `.json`, `.ods`, `.pdf`
-5. **Imagens** — `.png`, `.jpg`, `.webp`, `.heic`, `.tiff`, `.pdf`
-6. **PDF · OCR & Ferramentas**
-   - **OCR em PDF (`-ocr.pdf`):** reconhece texto em PDFs escaneados via **Apple Vision Neural Engine** (Português / Inglês / Espanhol) e grava uma camada de texto invisível e selecionável sobre as páginas originais.
-   - **Imagem(ns) → PDF com OCR (`-ocr.pdf`):** converte uma ou várias imagens (PNG, JPG, HEIC, TIFF, WebP) diretamente num único PDF pesquisável.
+3. **Download Web (`yt-dlp`)** — cola o link público (YouTube, TikTok, LinkedIn, Instagram, X, Vimeo e centenas de outros sites), escolhe **MP4 (Melhor qualidade / 1080p / 720p)** ou **Extrair Áudio (`.mp3` / `.m4a`)** com barra de progresso ao vivo e escolha da pasta de destino
+4. **Texto & Documentos** — `.docx`, `.pdf`, `.txt`, `.rtf`, `.html`, `.md`, `.odt`
+5. **Planilhas** — `.xlsx`, `.csv`, `.tsv`, `.json`, `.ods`, `.pdf`
+6. **Imagens** — `.png`, `.jpg`, `.webp`, `.heic`, `.tiff`, `.pdf`
+7. **PDF · OCR & Desbloqueio**
+   - **OCR em PDF (`-ocr.pdf`):** reconhece texto em PDFs escaneados via **Apple Vision Neural Engine** e grava uma camada de texto invisível e selecionável sobre as páginas originais.
+   - **Imagem(ns) → PDF com OCR (`-ocr.pdf`):** converte PNG/JPG/HEIC/TIFF/WebP diretamente num único PDF pesquisável.
    - **Extrair texto OCR (`.txt`):** extrai o texto reconhecido de PDFs escaneados ou imagens para UTF-8.
-   - **Desbloquear PDF com senha (`-desbloqueado.pdf`):** remove a proteção mediante a **senha informada pelo utilizador** para permitir edição noutro app. *(Para PDFs escaneados sem senha onde o texto é apenas imagem, utilize a opção «OCR em PDF».)*
-   - **Juntar PDFs (`-unido.pdf`):** combina vários PDFs num só.
-   - **Comprimir PDF (`-comprimido.pdf`):** reduz o tamanho do ficheiro para partilha rápida.
+   - **Desbloquear PDF com senha (`-desbloqueado.pdf` / `-unlocked.pdf`):** remove a proteção mediante a **senha informada pelo utilizador** para permitir edição noutro app.
+   - **Juntar PDFs (`-unido.pdf` / `-merged.pdf`):** combina vários PDFs num só.
+   - **Comprimir PDF (`-comprimido.pdf` / `-compressed.pdf`):** reduz o tamanho do ficheiro para partilha rápida.
+
+---
+
+## Assistente guiado, idioma e atualizações manuais
+
+- **Assistente de Dependências (na primeira abertura e no botão *Dependências*):** verifica o Homebrew e os motores opcionais (`ffmpeg`, `yt-dlp`, `pandoc`, `qpdf`, `ghostscript`, `webp`, `libreoffice`), solicita autorização nativa ao macOS (com janela de senha quando necessário), exibe barras de progresso durante a instalação e reinicia o app ao concluir.
+- **Checador Manual de Updates:** botão **Atualizações** na barra superior para consultar [GitHub Releases](https://github.com/fplamorim/sotao57-macos-tools/releases) somente quando clicado — nunca verifica nem instala atualizações automaticamente.
+- **Idioma automático do sistema:** segue automaticamente o idioma principal do macOS (Português, English ou Español).
+- **Tema claro fixo:** interface sempre em modo claro (Aqua/Light) para leitura consistente.
 
 ---
 
 ## Instalação rápida noutros Macs (`.dmg`)
 
-1. Descarregue o ficheiro `SOTAO57-Basic-Mac-Tools-v1.0.0.dmg` em [GitHub Releases](https://github.com/fplamorim/sotao57-basic-mac-tools/releases).
-2. Abra o `.dmg` e arraste **SOTAO57 Basic Mac Tools.app** para a pasta **Aplicações** (*Applications*).
-3. Na primeira abertura, como a app tem assinatura local (*ad-hoc*), se o macOS Gatekeeper mostrar aviso, clique com o botão direito em **SOTAO57 Basic Mac Tools.app** → **Abrir** (ou **Definições do Sistema → Privacidade e Segurança → Abrir mesmo assim**).
-4. *(Opcional)* Para ter conversão completa de vídeo, Opus/FLAC, Markdown, `.xlsx` avançado e desbloqueio/compressão vetorial de PDFs noutro Mac, corra o atalho `Instalar Dependencias Opcionais.command` incluído no `.dmg` ou execute no Terminal:
-   ```bash
-   brew install ffmpeg pandoc qpdf ghostscript webp
-   brew install --cask libreoffice
-   ```
-   *(OCR com Apple Vision, imagens PNG/JPG/HEIC/TIFF/PDF, extração/junção de PDF e formatos áudio AAC/WAV nativos funcionam mesmo sem instalar extras.)*
+1. Descarregue `SOTAO57-macOS-Tools-v1.1.0.dmg` em [GitHub Releases](https://github.com/fplamorim/sotao57-macos-tools/releases).
+2. Abra o `.dmg` e arraste **SOTAO57 macOS Tools.app** para **Applications** (*Aplicações*).
+3. Se o macOS Gatekeeper mostrar aviso por assinatura local (*ad-hoc*), clique com o botão direito em **SOTAO57 macOS Tools.app** → **Abrir** (ou **Definições do Sistema → Privacidade e Segurança → Abrir mesmo assim**).
+4. Ao abrir o app, siga o **Assistente integrado** (ou, se preferir via Terminal, execute `brew install ffmpeg yt-dlp pandoc qpdf ghostscript webp` e opcionalmente `brew install --cask libreoffice`).
 
 ---
 
@@ -46,8 +51,8 @@ Requer Xcode Command Line Tools (`xcode-select --install`) no macOS 13+:
 ./scripts/build_dmg.sh
 ```
 
-- O script `scripts/build.sh` compila para `/Applications/SOTAO57 Basic Mac Tools.app`.
-- O script `scripts/build_dmg.sh` gera o instalador portátil em `dist/SOTAO57-Basic-Mac-Tools-v1.0.0.dmg`.
+- `scripts/build.sh` compila o binário Universal (`arm64` + `x86_64`) em `/Applications/SOTAO57 macOS Tools.app`.
+- `scripts/build_dmg.sh` gera o instalador portátil em `dist/SOTAO57-macOS-Tools-v1.1.0.dmg`.
 
 ---
 
